@@ -2,7 +2,7 @@ import express from "express";
 import type { AgentCard, AgentSkill, AgentCapabilities } from "@a2a-js/sdk";
 import { DefaultRequestHandler, InMemoryTaskStore } from "@a2a-js/sdk/server";
 import { A2AExpressApp } from "@a2a-js/sdk/server/express";
-import { PolymarketAgentExecutor } from "./agentExecutor.ts";
+import { PolymarketAgentExecutor } from "./agentExecutor";
 import { configDotenv } from "dotenv";
 
 configDotenv();
