@@ -1,14 +1,14 @@
 import { AIMessage, ToolMessage } from "@langchain/core/messages";
-import { tool } from "@langchain/core/tools";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { MemorySaver } from "@langchain/langgraph";
 import { createAgent } from "langchain";
 import { z } from "zod";
+import { getMarketTags, getEvents } from "./tools";
+import { SYSTEM_INSTRUCTION } from "./instructions";
 
 const memory = new MemorySaver();
 
-const POLYMARKET_API_BASE = "https://gamma-api.polymarket.com";
-const tools = [""];
+const tools = [getMarketTags, getEvents];
 
 const ResponseFormatSchema = z.object({
   status: z
@@ -27,34 +27,6 @@ class PolymarketAgent {
 
   SUPPORTED_CONTENT_TYPES = ["text", "text/plain"];
 
-  SYSTEM_INSTRUCTION =
-    "You are a specialized Polymarket market data assistant powered by Polymarket's API. " +
-    "Your expertise is in helping users discover prediction markets on Polymarket. " +
-    "\n\n" +
-    "## Your Capabilities:\n" +
-    "1. **Market Discovery**: Search and browse active prediction markets\n" +
-    "2. **Market Categories**: Help users find markets by topic (politics, crypto, sports, etc.)\n" +
-    "3. **Market Details**: Explain market rules, outcomes, and resolution criteria\n" +
-    "\n\n" +
-    "## Data Sources:\n" +
-    "- Gamma API: Market metadata and event information\n" +
-    "\n\n" +
-    "## Important Guidelines:\n" +
-    "- Always provide objective market data without making trading recommendations\n" +
-    "\n\n" +
-    "## Response Format:\n" +
-    "- Set status to 'input_required' if you need more information from the user\n" +
-    "- Set status to 'error' if there's an API error or invalid request\n" +
-    "- Set status to 'completed' when the request is successfully fulfilled\n" +
-    "\n\n" +
-    "## Out of Scope:\n" +
-    "- You cannot place trades or execute orders\n" +
-    "- You cannot provide financial advice or trading strategies\n" +
-    "- You cannot access user portfolios or personal account data\n" +
-    "- You should not make predictions or express opinions about market outcomes\n" +
-    "\n\n" +
-    "Be concise, accurate, and helpful. Format market data in easy-to-read tables or lists when appropriate.";
-
   constructor() {
     this.model = new ChatGoogleGenerativeAI({
       model: "gemini-2.5-flash",
@@ -68,7 +40,7 @@ class PolymarketAgent {
       model: this.model,
       tools: this.tools,
       checkpointer: memory,
-      prompt: this.SYSTEM_INSTRUCTION,
+      prompt: SYSTEM_INSTRUCTION,
       responseFormat: ResponseFormatSchema,
     });
   }

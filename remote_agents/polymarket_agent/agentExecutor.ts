@@ -7,7 +7,7 @@ import type {
 } from "@a2a-js/sdk";
 import type { AgentExecutor, ExecutionEventBus } from "@a2a-js/sdk/server";
 import { RequestContext } from "@a2a-js/sdk/server";
-import { PolymarketAgent } from "./agent.ts";
+import { PolymarketAgent } from "./agent";
 
 const logging = {
   info: (msg: string) => console.log(`[INFO] ${msg}`),
@@ -37,7 +37,6 @@ function newAgentMessage(parts: { kind: "text"; text: string }[]): Message {
     messageId: uuidv4(),
     role: "agent",
     parts,
-    // contextId would be set when publishing
   };
 }
 
