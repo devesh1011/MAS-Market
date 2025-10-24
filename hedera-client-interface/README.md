@@ -1,4 +1,4 @@
-# Template Hedera Agent Kit Next.js
+
 
 ## Getting Started
 
