@@ -13,10 +13,18 @@ import { LedgerId } from '@hashgraph/sdk';
 const projectId = process.env.NEXT_PUBLIC_WALLET_CONNECT_ID ?? '';
 const queryClient = new QueryClient();
 
+// Determine the app URL dynamically (use localhost for dev, actual domain for prod)
+const getMetadataUrl = (): string => {
+  if (typeof window !== 'undefined') {
+    return window.location.origin;
+  }
+  return 'https://example.com';
+};
+
 const metadata = {
   name: 'AgentKit Next.js Demo',
   description: 'AgentKit Next.js Demo',
-  url: 'https://example.com',
+  url: getMetadataUrl(),
   icons: ['https://avatars.githubusercontent.com/u/179229932'],
 };
 
@@ -44,22 +52,24 @@ export function ClientProviders({ children }: ClientProvidersProps) {
   // Listen for account/session changes using events$
   useEffect(() => {
     if (!dAppConnector) return;
-    const subscription = (dAppConnector as any).events$?.subscribe((event: { name: string; data: any }) => {
-      if (event.name === 'accountsChanged' || event.name === 'chainChanged') {
-        setUserAccountId(dAppConnector.signers?.[0]?.getAccountId().toString() ?? null);
-        // Try to get topic from event data
-        if (event.data && event.data.topic) {
-          setSessionTopic(event.data.topic);
-        } else if (dAppConnector.signers?.[0]?.topic) {
-          setSessionTopic(dAppConnector.signers[0].topic);
-        } else {
+    const subscription = (dAppConnector as any).events$?.subscribe(
+      (event: { name: string; data: any }) => {
+        if (event.name === 'accountsChanged' || event.name === 'chainChanged') {
+          setUserAccountId(dAppConnector.signers?.[0]?.getAccountId().toString() ?? null);
+          // Try to get topic from event data
+          if (event.data && event.data.topic) {
+            setSessionTopic(event.data.topic);
+          } else if (dAppConnector.signers?.[0]?.topic) {
+            setSessionTopic(dAppConnector.signers[0].topic);
+          } else {
+            setSessionTopic(null);
+          }
+        } else if (event.name === 'session_delete' || event.name === 'sessionDelete') {
+          setUserAccountId(null);
           setSessionTopic(null);
         }
-      } else if (event.name === 'session_delete' || event.name === 'sessionDelete') {
-        setUserAccountId(null);
-        setSessionTopic(null);
-      }
-    });
+      },
+    );
     // Set initial state
     setUserAccountId(dAppConnector.signers?.[0]?.getAccountId().toString() ?? null);
     if (dAppConnector.signers?.[0]?.topic) setSessionTopic(dAppConnector.signers[0].topic);
@@ -86,6 +96,16 @@ export function ClientProviders({ children }: ClientProvidersProps) {
   useEffect(() => {
     let isMounted = true;
     async function init() {
+      if (!projectId) {
+        console.warn(
+          'NEXT_PUBLIC_WALLET_CONNECT_ID is not configured. WalletConnect will not be available.',
+        );
+        if (isMounted) {
+          setDAppConnector(null);
+          setIsReady(true);
+        }
+        return;
+      }
       const connector = new DAppConnector(
         metadata,
         LedgerId.TESTNET,
@@ -95,6 +115,15 @@ export function ClientProviders({ children }: ClientProvidersProps) {
         [HederaChainId.Mainnet, HederaChainId.Testnet],
       );
       await connector.init();
+      // Increase max listeners to suppress EventEmitter warning during connection
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const connectorAny = connector as any;
+      if (connectorAny.relayClient?.engine?.getEventEmitter) {
+        const emitter = connectorAny.relayClient.engine.getEventEmitter();
+        if (emitter?.setMaxListeners) {
+          emitter.setMaxListeners(50);
+        }
+      }
       if (isMounted) {
         setDAppConnector(connector);
         setIsReady(true);
@@ -114,7 +143,9 @@ export function ClientProviders({ children }: ClientProvidersProps) {
     );
 
   return (
-    <DAppConnectorContext.Provider value={{ dAppConnector, userAccountId, sessionTopic, disconnect, refresh }}>
+    <DAppConnectorContext.Provider
+      value={{ dAppConnector, userAccountId, sessionTopic, disconnect, refresh }}
+    >
       <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
     </DAppConnectorContext.Provider>
   );
