@@ -1,5 +1,4 @@
 import { LoaderCircle } from 'lucide-react';
-import { EmptyChat } from '@/components/empty-chat';
 import { ChatMessage } from '@/shared/types';
 
 type ChatProps = {
@@ -9,15 +8,15 @@ type ChatProps = {
 
 export function Chat({ chatHistory, isLoading }: ChatProps) {
   return (
-    <div className="bg-zinc-800 grow rounded-lg flex flex-col gap-2 p-4">
+    <div className="flex flex-col gap-4">
       {chatHistory.map((message, idx) => (
         <div key={idx} className="flex">
           {message.type === 'human' ? (
-            <div className="bg-white text-black inline-block px-4 py-2 rounded-md ml-auto font-medium">
+            <div className="bg-white text-black inline-block px-4 py-3 rounded-lg ml-auto font-medium max-w-[80%]">
               {message.content}
             </div>
           ) : (
-            <div className="bg-zinc-800 text-white inline-block px-4 py-2 rounded-md break-all border border-zinc-700">
+            <div className="bg-transparent text-white inline-block px-4 py-3 rounded-lg break-words border border-zinc-800 max-w-[80%]">
               {message.content}
             </div>
           )}
@@ -26,13 +25,17 @@ export function Chat({ chatHistory, isLoading }: ChatProps) {
 
       {isLoading && (
         <div>
-          <div className="bg-zinc-800 text-white inline-block px-4 py-2 rounded-md border border-zinc-700">
+          <div className="bg-transparent text-white inline-block px-4 py-3 rounded-lg border border-zinc-800">
             <LoaderCircle className="animate-spin text-white" />
           </div>
         </div>
       )}
 
-      <EmptyChat isChatEmpty={chatHistory.length <= 0} />
+      {chatHistory.length === 0 && !isLoading && (
+        <div className="text-center text-zinc-500 py-8">
+          <p>Start a conversation by asking about prediction markets</p>
+        </div>
+      )}
     </div>
   );
 }
