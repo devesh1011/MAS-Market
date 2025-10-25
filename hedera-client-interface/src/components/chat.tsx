@@ -13,11 +13,11 @@ export function Chat({ chatHistory, isLoading }: ChatProps) {
       {chatHistory.map((message, idx) => (
         <div key={idx} className="flex">
           {message.type === 'human' ? (
-            <div className="bg-zinc-700 inline-block px-4 py-2 rounded-md ml-auto">
+            <div className="bg-white text-black inline-block px-4 py-2 rounded-md ml-auto font-medium">
               {message.content}
             </div>
           ) : (
-            <div className="bg-zinc-700 inline-block px-4 py-2 rounded-md break-all">
+            <div className="bg-zinc-800 text-white inline-block px-4 py-2 rounded-md break-all border border-zinc-700">
               {message.content}
             </div>
           )}
@@ -26,8 +26,8 @@ export function Chat({ chatHistory, isLoading }: ChatProps) {
 
       {isLoading && (
         <div>
-          <div className="bg-zinc-700 inline-block px-4 py-2 rounded-md">
-            <LoaderCircle className="animate-spin" />
+          <div className="bg-zinc-800 text-white inline-block px-4 py-2 rounded-md border border-zinc-700">
+            <LoaderCircle className="animate-spin text-white" />
           </div>
         </div>
       )}
