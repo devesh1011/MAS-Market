@@ -1,9 +1,33 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { BarChart3, Search, Link2, Shield, Sparkles, TrendingUp, Zap } from 'lucide-react';
+import {
+  BarChart3,
+  Search,
+  Link2,
+  Shield,
+  Sparkles,
+  TrendingUp,
+  Zap,
+  ArrowRight,
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useDAppConnector } from '@/components/client-providers';
 
 export function Landing() {
+  const router = useRouter();
+  const dAppContext = useDAppConnector();
+
+  const handleGetStarted = () => {
+    // Check if wallet is connected
+    if (dAppContext?.dAppConnector?.signers[0]) {
+      router.push('/markets');
+    } else {
+      // Scroll to connect wallet section or show alert
+      alert('Please connect your wallet first using the button in the navbar');
+    }
+  };
+
   const features = [
     {
       icon: BarChart3,
@@ -25,7 +49,11 @@ export function Landing() {
   const steps = [
     { icon: Shield, title: 'Connect', description: 'Connect your Hedera wallet securely' },
     { icon: Sparkles, title: 'Ask', description: 'Query prediction markets or request analysis' },
-    { icon: TrendingUp, title: 'Analyze', description: 'AI agents research and provide recommendations' },
+    {
+      icon: TrendingUp,
+      title: 'Analyze',
+      description: 'AI agents research and provide recommendations',
+    },
     { icon: Zap, title: 'Execute', description: 'Sign and execute transactions on-chain' },
   ];
 
@@ -38,7 +66,7 @@ export function Landing() {
         transition={{ duration: 0.6 }}
       >
         {/* Hero Section */}
-        <motion.div 
+        <motion.div
           className="mb-16"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -50,13 +78,24 @@ export function Landing() {
             Prediction Market Analysis
           </h1>
           <p className="text-xl text-zinc-400 mb-8 max-w-3xl mx-auto leading-relaxed">
-            Make informed decisions with advanced AI agents that analyze Polymarket data, 
-            conduct deep research, and provide evidence-based recommendations on Hedera blockchain.
+            Make informed decisions with advanced AI agents that analyze Polymarket data, conduct
+            deep research, and provide evidence-based recommendations on Hedera blockchain.
           </p>
+
+          {/* Get Started Button */}
+          <motion.button
+            onClick={handleGetStarted}
+            className="inline-flex items-center gap-2 px-8 py-4 bg-white text-black font-semibold rounded-lg hover:bg-zinc-200 transition-colors text-lg"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Get Started
+            <ArrowRight className="w-5 h-5" />
+          </motion.button>
         </motion.div>
 
         {/* Features Grid */}
-        <motion.div 
+        <motion.div
           className="grid md:grid-cols-3 gap-6 mb-20"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -75,23 +114,19 @@ export function Landing() {
                 <feature.icon className="w-6 h-6 text-white" />
               </div>
               <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
-              <p className="text-zinc-400 leading-relaxed">
-                {feature.description}
-              </p>
+              <p className="text-zinc-400 leading-relaxed">{feature.description}</p>
             </motion.div>
           ))}
         </motion.div>
 
         {/* How It Works Section */}
-        <motion.div 
+        <motion.div
           className="mt-20 pt-12 border-t border-zinc-800"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.8 }}
         >
-          <h2 className="text-3xl font-bold text-white mb-12">
-            How It Works
-          </h2>
+          <h2 className="text-3xl font-bold text-white mb-12">How It Works</h2>
           <div className="grid md:grid-cols-4 gap-6">
             {steps.map((step, index) => (
               <motion.div
@@ -115,9 +150,7 @@ export function Landing() {
                   <div className="text-white font-semibold mb-2 text-lg">
                     {index + 1}. {step.title}
                   </div>
-                  <p className="text-sm text-zinc-400 leading-relaxed">
-                    {step.description}
-                  </p>
+                  <p className="text-sm text-zinc-400 leading-relaxed">{step.description}</p>
                 </div>
               </motion.div>
             ))}
@@ -127,4 +160,3 @@ export function Landing() {
     </div>
   );
 }
-
