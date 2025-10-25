@@ -1,107 +1,109 @@
-/* eslint-disable no-console */
-import { createDeepAgent, type SubAgent } from "@devesh1011/deep-agent";
-import { tool, StructuredTool } from "@langchain/core/tools";
+import { createAgent } from "langchain";
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
 import "dotenv/config";
-import { TavilySearch } from "@langchain/tavily";
-import {
-  researchInstructions,
-  subCritiquePrompt,
-  subResearchPrompt,
-} from "./instructions";
-import { configDotenv } from "dotenv";
+import { internetSearch } from "./tools.js";
 
-configDotenv();
+// Define the response schema for market research
+const ResearchResponseSchema = z.object({
+  summary: z
+    .string()
+    .describe(
+      "A concise summary of the analysis with key reasoning (2-3 sentences)"
+    ),
+  what_to_bet: z
+    .enum(["yes", "no", "insufficient_data"])
+    .describe("The recommendation: 'yes', 'no', or 'insufficient_data'"),
+});
 
-type Topic = "general" | "news" | "finance";
+type ResearchResponse = z.infer<typeof ResearchResponseSchema>;
 
-// Search tool to use to do research
-const internetSearch = tool(
-  async ({
-    query,
-    maxResults = 5,
-    topic = "general" as Topic,
-    includeRawContent = false,
-  }: {
-    query: string;
-    maxResults?: number;
-    topic?: Topic;
-    includeRawContent?: boolean;
-  }) => {
-    /**
-     * Run a web search
-     */
-
-    // Note: You'll need to install and import tavily-js or similar package
-    // For now, this is a placeholder that shows the structure
-    const tavilySearch = new TavilySearch({
-      maxResults,
-      tavilyApiKey: process.env.TAVILY_API_KEY,
-      includeRawContent,
-      topic,
-    });
-    const tavilyResponse = await tavilySearch.invoke({ query });
-
-    return tavilyResponse;
-  },
-  {
-    name: "internet_search",
-    description: "Run a web search",
-    schema: z.object({
-      query: z.string().describe("The search query"),
-      maxResults: z
-        .number()
-        .optional()
-        .default(5)
-        .describe("Maximum number of results to return"),
-      topic: z
-        .enum(["general", "news", "finance"])
-        .optional()
-        .default("general")
-        .describe("Search topic category"),
-      includeRawContent: z
-        .boolean()
-        .optional()
-        .default(false)
-        .describe("Whether to include raw content"),
-    }),
-  }
-);
-
+/**
+ * Market Research Agent using LangChain's createAgent
+ * Fast, focused research on prediction market events
+ */
 class MarketResearchAgent {
-  researchSubAgent: SubAgent;
-  critiqueSubAgent: SubAgent;
-  agent: any;
+  private agent: any;
+
   constructor() {
-    this.researchSubAgent = {
-      name: "research-agent",
-      description:
-        "Used to research more in depth questions. Only give this researcher one topic at a time. Do not pass multiple sub questions to this researcher. Instead, you should break down a large topic into the necessary components, and then call multiple research agents in parallel, one for each sub question.",
-      prompt: subResearchPrompt,
-      tools: ["internet_search"],
-    };
+    const model = new ChatGoogleGenerativeAI({
+      model: "gemini-2.5-flash",
+      apiKey: process.env.GOOGLE_API_KEY,
+      temperature: 0.5,
+    });
 
-    this.critiqueSubAgent = {
-      name: "critique-agent",
-      description:
-        "Used to critique the final report. Give this agent some infomration about how you want it to critique the report.",
-      prompt: subCritiquePrompt,
-    };
+    // System prompt for focused market research
+    const systemPrompt = `You are an expert prediction market analyst. Your job is to quickly analyze prediction market events and provide clear, evidence-based recommendations.
 
-    this.agent = createDeepAgent({
+## Your Task
+When given a market event, you must:
+1. Understand the exact event question and resolution criteria
+2. Search for relevant current information and recent developments
+3. Analyze the information objectively
+4. Provide a clear YES/NO recommendation based on available evidence, or INSUFFICIENT_DATA if there's not enough information
+
+## Important Guidelines
+- Be concise and direct in your analysis
+- Only use SUFFICIENT_DATA if you have found relevant, recent information
+- Consider both supporting and opposing evidence
+- Use the internet_search tool to find current information
+- Focus on objective facts, not speculation
+- If critical information is unavailable, clearly state this
+
+## Response Format
+You MUST respond with a JSON object containing:
+{
+  "summary": "2-3 sentence explanation of your recommendation with key evidence",
+  "what_to_bet": "yes" OR "no" OR "insufficient_data"
+}
+
+The summary should be clear, concise, and include the most important reasoning. The user will only see this JSON response.`;
+
+    this.agent = createAgent({
+      model,
       tools: [internetSearch],
-      instructions: researchInstructions,
-      subagents: [this.critiqueSubAgent, this.researchSubAgent],
-    }).withConfig({ recursionLimit: 1000 });
+      systemPrompt,
+      responseFormat: ResearchResponseSchema,
+    });
   }
 
-  async invoke(params: { messages: Array<{ role: string; content: string }> }) {
+  async invoke(params: {
+    messages: Array<{ role: "user" | "assistant"; content: string }>;
+  }): Promise<ResearchResponse> {
     try {
       const result = await this.agent.invoke({
         messages: params.messages,
       });
-      console.log(result);
-      return result;
+
+      // Extract structured response
+      if (result.structuredResponse) {
+        return result.structuredResponse as ResearchResponse;
+      }
+
+      // Fallback: try to parse from content
+      if (result.content) {
+        try {
+          const parsed = JSON.parse(
+            typeof result.content === "string"
+              ? result.content
+              : JSON.stringify(result.content)
+          );
+          return {
+            summary: parsed.summary || "Unable to generate summary",
+            what_to_bet: parsed.what_to_bet || "insufficient_data",
+          };
+        } catch (e) {
+          // If JSON parsing fails, extract from message
+          console.error("Failed to parse structured response:", e);
+        }
+      }
+
+      // Last resort response
+      return {
+        summary:
+          "Unable to complete analysis. Please try again with a more specific market question.",
+        what_to_bet: "insufficient_data",
+      };
     } catch (error) {
       console.error("Error invoking agent:", error);
       throw error;
@@ -109,4 +111,4 @@ class MarketResearchAgent {
   }
 }
 
-export { MarketResearchAgent };
+export { MarketResearchAgent, ResearchResponseSchema, type ResearchResponse };
