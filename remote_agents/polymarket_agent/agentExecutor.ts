@@ -7,7 +7,6 @@ import type {
 } from "@a2a-js/sdk";
 import type { AgentExecutor, ExecutionEventBus } from "@a2a-js/sdk/server";
 import { RequestContext } from "@a2a-js/sdk/server";
-import { PolymarketAgent } from "./agent";
 
 const logging = {
   info: (msg: string) => console.log(`[INFO] ${msg}`),
@@ -30,7 +29,7 @@ type TaskState =
   | "auth-required"
   | "unknown";
 
-// Helper to create a new agent message (similar to Python's updater.new_agent_message)
+// Helper to create a new agent message
 function newAgentMessage(parts: { kind: "text"; text: string }[]): Message {
   return {
     kind: "message",
@@ -40,11 +39,44 @@ function newAgentMessage(parts: { kind: "text"; text: string }[]): Message {
   };
 }
 
-class PolymarketAgentExecutor implements AgentExecutor {
-  private agent: PolymarketAgent;
+// Simple API fetcher - no AI needed
+async function fetchPolymarketData(): Promise<string> {
+  try {
+    const response = await fetch("https://gamma-api.polymarket.com/series");
+    if (!response.ok) {
+      throw new Error(`API returned ${response.status}`);
+    }
+    const data = await response.json();
 
+    // Return a summary instead of full data to avoid overwhelming responses
+    const summary = {
+      total_markets: Array.isArray(data) ? data.length : 0,
+      markets: Array.isArray(data)
+        ? data.slice(0, 20).map((market: any) => ({
+            title: market.title || "Unknown",
+            ticker: market.ticker || "N/A",
+            slug: market.slug || "N/A",
+            end_date: market.end_date || "N/A",
+            tags: market.tags || [],
+            volume: market.volume || 0,
+            liquidity: market.liquidity || 0,
+          }))
+        : [],
+      note:
+        "Showing first 20 markets. Total available: " +
+        (Array.isArray(data) ? data.length : 0),
+    };
+
+    return JSON.stringify(summary, null, 2);
+  } catch (error) {
+    console.error("Error fetching Polymarket data:", error);
+    throw error;
+  }
+}
+
+class PolymarketAgentExecutor implements AgentExecutor {
   constructor() {
-    this.agent = new PolymarketAgent();
+    // No agent needed - direct API calls only
   }
 
   async execute(
@@ -92,80 +124,50 @@ class PolymarketAgentExecutor implements AgentExecutor {
     eventBus.publish(workingUpdate);
 
     try {
-      for await (const item of this.agent.stream(query, context.contextId)) {
-        const isTaskComplete = item.is_task_complete;
-        const requireUserInput = item.require_user_input;
-        const parts = [{ kind: "text" as const, text: item.content }];
+      logging.info(`Fetching Polymarket data for query: ${query}`);
 
-        if (!isTaskComplete && !requireUserInput) {
-          // Working state with message
-          const workingMessageUpdate: TaskStatusUpdateEvent = {
-            kind: "status-update",
-            taskId: context.taskId,
-            contextId: context.contextId,
-            status: {
-              state: "working" as TaskState,
-              timestamp: new Date().toISOString(),
-            },
-            final: false,
-          };
-          eventBus.publish(workingMessageUpdate);
-          // Optionally publish a message event if needed, but status-update suffices
-        } else if (requireUserInput) {
-          // Input required
-          const inputRequiredUpdate: TaskStatusUpdateEvent = {
-            kind: "status-update",
-            taskId: context.taskId,
-            contextId: context.contextId,
-            status: {
-              state: "input_required" as TaskState,
-              timestamp: new Date().toISOString(),
-            },
-            final: false,
-          };
-          eventBus.publish(inputRequiredUpdate);
-          // Publish message with parts
-          const agentMessage: Message = newAgentMessage(parts);
-          agentMessage.contextId = context.contextId;
-          eventBus.publish(agentMessage);
-          break;
-        } else {
-          // Completed: Add artifact and complete
-          const artifactUpdate: TaskArtifactUpdateEvent = {
-            kind: "artifact-update",
-            taskId: context.taskId,
-            contextId: context.contextId,
-            artifact: {
-              artifactId: "scheduling_result",
-              name: "scheduling_result",
-              parts,
-            },
-          };
-          eventBus.publish(artifactUpdate);
+      // Direct API call - no AI processing needed
+      const data = await fetchPolymarketData();
 
-          const completeUpdate: TaskStatusUpdateEvent = {
-            kind: "status-update",
-            taskId: context.taskId,
-            contextId: context.contextId,
-            status: {
-              state: "completed" as TaskState,
-              timestamp: new Date().toISOString(),
-            },
-            final: true,
-          };
-          eventBus.publish(completeUpdate);
-          eventBus.finished();
-          break;
-        }
-      }
+      logging.info(
+        `Successfully fetched data, length: ${data.length} characters`
+      );
+
+      // Publish the result message FIRST
+      const resultMessage: Message = newAgentMessage([
+        { kind: "text", text: data },
+      ]);
+      resultMessage.contextId = context.contextId;
+      (resultMessage as any).taskId = context.taskId;
+      eventBus.publish(resultMessage);
+
+      logging.info(`Published result message`);
+
+      // Then publish completed status
+      const completedUpdate: TaskStatusUpdateEvent = {
+        kind: "status-update",
+        taskId: context.taskId,
+        contextId: context.contextId,
+        status: {
+          state: "completed" as TaskState,
+          timestamp: new Date().toISOString(),
+        },
+        final: true,
+      };
+      eventBus.publish(completedUpdate);
+
+      logging.info(`Published completed status`);
+
+      eventBus.finished();
+      logging.info(`Finished execution`);
     } catch (e) {
-      logger.error(`An error occurred while streaming the response: ${e}`);
+      logger.error(`An error occurred while fetching Polymarket data: ${e}`);
       const errorUpdate: TaskStatusUpdateEvent = {
         kind: "status-update",
         taskId: context.taskId,
         contextId: context.contextId,
         status: {
-          state: "error" as TaskState,
+          state: "failed" as TaskState,
           timestamp: new Date().toISOString(),
         },
         final: true,
