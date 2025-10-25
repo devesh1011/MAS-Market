@@ -7,6 +7,7 @@ import { Navbar } from '@/components/navbar';
 import { useDAppConnector } from '@/components/client-providers';
 import { Chat } from '@/components/chat';
 import { Sidebar } from '@/components/sidebar';
+import { BetModal } from '@/components/bet-modal';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -38,6 +39,8 @@ export default function ChatPage() {
   const [markets, setMarkets] = useState<MarketEvent[]>([]);
   const [isLoadingMarkets, setIsLoadingMarkets] = useState(false);
   const [marketsError, setMarketsError] = useState<string | null>(null);
+  const [betModalOpen, setBetModalOpen] = useState(false);
+  const [selectedBet, setSelectedBet] = useState<{ direction: 'yes' | 'no'; marketTitle: string } | null>(null);
   const { mutateAsync, isPending } = useHandleChat();
   const dAppContext = useDAppConnector();
   const router = useRouter();
@@ -149,6 +152,40 @@ export default function ChatPage() {
     };
   }, [activeSection]);
 
+  // Handle opening bet modal
+  function handleOpenBetModal(direction: 'yes' | 'no', marketTitle: string) {
+    console.log('handleOpenBetModal called:', { direction, marketTitle });
+    setSelectedBet({ direction, marketTitle });
+    setBetModalOpen(true);
+    console.log('Modal should now be open');
+  }
+
+  // Handle placing bet
+  async function handlePlaceBet(amount: string) {
+    if (!selectedBet) return;
+    
+    console.log('Placing bet:', { 
+      direction: selectedBet.direction, 
+      market: selectedBet.marketTitle, 
+      amount 
+    });
+    
+    // Add to chat that bet was placed
+    setChatHistory((v) => [
+      ...v,
+      {
+        type: 'ai',
+        content: `Bet placed: ${amount} HBAR on ${selectedBet.direction.toUpperCase()} for "${selectedBet.marketTitle}"`,
+      },
+    ]);
+    
+    // Close modal
+    setBetModalOpen(false);
+    setSelectedBet(null);
+    
+    // TODO: Integrate with actual betting logic/smart contract
+  }
+
   // Handle side chat messages
   async function handleSideChatMessage(e: React.FormEvent) {
     e.preventDefault();
@@ -184,7 +221,7 @@ export default function ChatPage() {
         signerAccountId: dAppContext.dAppConnector.signers[0].getAccountId().toString(),
         transactionList: agentResponse.transactionBytes,
       });
-
+      
       if (result) {
         const transactionId = 'transactionId' in result ? result.transactionId : null;
         setChatHistory((v) => [
@@ -274,20 +311,26 @@ export default function ChatPage() {
                           </div>
                         )}
 
-                        {/* Yes/No Prices */}
+                        {/* Yes/No Prices with Bet Buttons */}
                         <div className="flex gap-2 mb-3">
-                          <div className="flex-1 bg-green-500/10 border border-green-500/30 rounded p-2">
+                          <button
+                            onClick={() => handleOpenBetModal('yes', market.title)}
+                            className="flex-1 bg-green-500/10 border border-green-500/30 rounded p-2 hover:bg-green-500/20 transition-colors cursor-pointer"
+                          >
                             <div className="text-xs text-green-400 mb-1">YES</div>
                             <div className="text-lg font-bold text-green-400">
                               {(market.yesPrice * 100).toFixed(0)}%
                             </div>
-                          </div>
-                          <div className="flex-1 bg-red-500/10 border border-red-500/30 rounded p-2">
+                          </button>
+                          <button
+                            onClick={() => handleOpenBetModal('no', market.title)}
+                            className="flex-1 bg-red-500/10 border border-red-500/30 rounded p-2 hover:bg-red-500/20 transition-colors cursor-pointer"
+                          >
                             <div className="text-xs text-red-400 mb-1">NO</div>
                             <div className="text-lg font-bold text-red-400">
                               {(market.noPrice * 100).toFixed(0)}%
                             </div>
-                          </div>
+                          </button>
                         </div>
 
                         {/* Stats */}
@@ -383,9 +426,13 @@ export default function ChatPage() {
         {/* Right side - Chat Interface (Independent) */}
         <div className="w-96 h-full flex flex-col border-l border-zinc-800">
           <div className="flex-1 overflow-y-auto p-6">
-            <Chat chatHistory={chatHistory} isLoading={isPending} />
+            <Chat 
+              chatHistory={chatHistory} 
+              isLoading={isPending}
+              onOpenBetModal={handleOpenBetModal}
+            />
           </div>
-
+          
           {/* Chat input at bottom */}
           <div className="p-6 border-t border-zinc-800">
             <form onSubmit={handleSideChatMessage} className="relative">
@@ -408,6 +455,18 @@ export default function ChatPage() {
           </div>
         </div>
       </main>
+
+      {/* Bet Modal */}
+      <BetModal
+        isOpen={betModalOpen}
+        onClose={() => {
+          setBetModalOpen(false);
+          setSelectedBet(null);
+        }}
+        betDirection={selectedBet?.direction || 'yes'}
+        marketTitle={selectedBet?.marketTitle || ''}
+        onPlaceBet={handlePlaceBet}
+      />
     </div>
   );
 }
