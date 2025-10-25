@@ -350,25 +350,62 @@ Response: "🔍 Based on my analysis: [detailed reasoning]
       config,
     );
 
+    console.log('[HostAgent] Response has messages:', !!response.messages);
+    console.log('[HostAgent] Number of messages:', response.messages?.length);
+
     // Extract the last AI message from the response
     if (response.messages && Array.isArray(response.messages)) {
-      // Find the last AIMessage in the conversation
+      // Find the last AIMessage in the conversation (iterate backwards)
       for (let i = response.messages.length - 1; i >= 0; i--) {
         const msg = response.messages[i];
-        // Check if it's an AIMessage (type includes AIMessage in id path)
-        if (msg.id && Array.isArray(msg.id) && msg.id.includes('AIMessage')) {
-          const content = msg.kwargs?.content;
-          // Handle different content types
+
+        // Check if it's an AIMessage using multiple methods
+        const isAIMessage =
+          msg.constructor?.name === 'AIMessage' ||
+          msg._getType?.() === 'ai' ||
+          (msg.lc && msg.lc === 1 && msg.id && msg.id.includes('AIMessage')) ||
+          (msg.id && Array.isArray(msg.id) && msg.id.includes('AIMessage'));
+
+        if (isAIMessage) {
+          const content = msg.kwargs?.content || msg.content;
+
+          console.log('[HostAgent] Found AIMessage at index', i);
+          console.log('[HostAgent] Content type:', typeof content);
+
+          // Handle string content (most common)
           if (typeof content === 'string') {
+            console.log('[HostAgent] Returning string content');
             return { output: content };
-          } else if (content && typeof content === 'object' && !Array.isArray(content)) {
-            // Sometimes content is nested in kwargs
-            return { output: String(content) };
+          }
+
+          // Handle array content (might contain tool calls and text)
+          if (Array.isArray(content)) {
+            // Filter out tool calls and extract text content
+            const textParts = content
+              .filter((part) => typeof part === 'string' || part.type === 'text')
+              .map((part) => (typeof part === 'string' ? part : part.text || ''));
+
+            if (textParts.length > 0) {
+              console.log('[HostAgent] Returning filtered text from array');
+              return { output: textParts.join('\n') };
+            }
+          }
+
+          // Handle object content
+          if (content && typeof content === 'object') {
+            console.log('[HostAgent] Content is object');
+            // If there's a text property, use that
+            if ('text' in content) {
+              return { output: String(content.text) };
+            }
+            // Otherwise stringify
+            return { output: JSON.stringify(content) };
           }
         }
       }
     }
 
+    console.log('[HostAgent] No valid AIMessage found, returning fallback');
     // Fallback: return the entire response as string
     return { output: JSON.stringify(response) };
   }
