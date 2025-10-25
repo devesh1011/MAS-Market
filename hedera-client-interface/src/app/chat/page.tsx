@@ -7,9 +7,33 @@ import { Navbar } from '@/components/navbar';
 import { useDAppConnector } from '@/components/client-providers';
 import { Chat } from '@/components/chat';
 import { Sidebar } from '@/components/sidebar';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+interface Tag {
+  id: string;
+  label: string;
+  slug: string;
+}
+
+interface Event {
+  id: string;
+  title: string;
+  ticker: string;
+  volume: number;
+  liquidity: number;
+  endDate: string;
+  active: boolean;
+  tags: Tag[];
+}
+
+interface Series {
+  id: string;
+  title: string;
+  active: boolean;
+  events?: Event[];
+}
 
 export default function ChatPage() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
@@ -19,6 +43,7 @@ export default function ChatPage() {
   const { mutateAsync, isPending } = useHandleChat();
   const dAppContext = useDAppConnector();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Redirect to home if wallet is not connected
   useEffect(() => {
@@ -27,15 +52,95 @@ export default function ChatPage() {
     }
   }, [dAppContext, router]);
 
+  // Auto-populate chat with market data from URL params
+  useEffect(() => {
+    const marketTitle = searchParams.get('title');
+    const marketDescription = searchParams.get('description');
+    const marketId = searchParams.get('marketId');
+
+    if (marketTitle && marketDescription && marketId) {
+      // Create initial message about the market
+      const marketQuery = `I'm interested in analyzing this prediction market:\n\nTitle: ${marketTitle}\n\nDescription: ${marketDescription}\n\nCan you research this event and provide your analysis with a betting recommendation?`;
+
+      setSidePrompt(marketQuery);
+
+      // Clear URL params after reading
+      router.replace('/chat', { scroll: false });
+    }
+  }, [searchParams, router]);
+
   // Handle middle search bar (separate functionality)
   async function handleMiddleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (!middleSearch.trim()) return;
-    
-    console.log('Middle search:', middleSearch);
-    // TODO: Add middle section functionality here
-    // This is separate from the side chat
+
+    const searchQuery = middleSearch;
     setMiddleSearch('');
+
+    setChatHistory((v) => [
+      ...v,
+      {
+        type: 'human',
+        content: searchQuery,
+      },
+    ]);
+
+    try {
+      // Fetch active events from backend API (which proxies Polymarket API to avoid CORS)
+      const response = await fetch('/api/polymarket');
+      if (!response.ok) {
+        throw new Error('Failed to fetch market data');
+      }
+      const allSeries: Series[] = await response.json();
+
+      // Filter for active events only
+      const activeSeries = allSeries.filter((series) => series.active === true);
+
+      // Extract and format events
+      const events = activeSeries.flatMap((series) =>
+        (series.events || [])
+          .filter((event) => event.active === true)
+          .map((event) => ({
+            title: event.title,
+            ticker: event.ticker,
+            volume: event.volume || 0,
+            liquidity: event.liquidity || 0,
+            endDate: event.endDate,
+            tags: event.tags || [],
+          })),
+      );
+
+      // Format response
+      let responseText = `Found ${events.length} active events on Polymarket:\n\n`;
+      events.slice(0, 10).forEach((event, idx) => {
+        const tagsText = event.tags.map((t) => t.label).join(', ');
+        responseText += `${idx + 1}. **${event.title}** (${event.ticker})\n`;
+        responseText += `   Volume: $${Number(event.volume).toFixed(2)} | Liquidity: $${Number(event.liquidity).toFixed(2)}\n`;
+        responseText += `   Tags: ${tagsText || 'None'}\n`;
+        responseText += `   Ends: ${new Date(event.endDate).toLocaleDateString()}\n\n`;
+      });
+
+      if (events.length > 10) {
+        responseText += `... and ${events.length - 10} more events`;
+      }
+
+      setChatHistory((v) => [
+        ...v,
+        {
+          type: 'ai',
+          content: responseText,
+        },
+      ]);
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      setChatHistory((v) => [
+        ...v,
+        {
+          type: 'ai',
+          content: 'Failed to fetch active events. Please try again.',
+        },
+      ]);
+    }
   }
 
   // Handle side chat messages
@@ -73,7 +178,7 @@ export default function ChatPage() {
         signerAccountId: dAppContext.dAppConnector.signers[0].getAccountId().toString(),
         transactionList: agentResponse.transactionBytes,
       });
-      
+
       if (result) {
         const transactionId = 'transactionId' in result ? result.transactionId : null;
         setChatHistory((v) => [
@@ -90,11 +195,11 @@ export default function ChatPage() {
   return (
     <div className="h-screen w-full bg-black flex flex-col">
       <Navbar />
-      
+
       <main className="flex-1 flex overflow-hidden">
         {/* Left Sidebar */}
         <Sidebar activeSection={activeSection} onSectionChange={setActiveSection} />
-        
+
         {/* Center Content - Conditional Display */}
         <div className="flex-1 flex items-center justify-center px-12">
           {activeSection === 'market' ? (
@@ -131,9 +236,7 @@ export default function ChatPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
             >
-              <h2 className="text-4xl font-bold text-white mb-12 text-center">
-                How It Works
-              </h2>
+              <h2 className="text-4xl font-bold text-white mb-12 text-center">How It Works</h2>
               <div className="grid grid-cols-2 gap-8">
                 {[
                   {
@@ -169,12 +272,8 @@ export default function ChatPage() {
                         {step.number}
                       </div>
                       <div>
-                        <h3 className="text-xl font-semibold text-white mb-2">
-                          {step.title}
-                        </h3>
-                        <p className="text-zinc-400 leading-relaxed">
-                          {step.description}
-                        </p>
+                        <h3 className="text-xl font-semibold text-white mb-2">{step.title}</h3>
+                        <p className="text-zinc-400 leading-relaxed">{step.description}</p>
                       </div>
                     </div>
                   </motion.div>
@@ -189,7 +288,7 @@ export default function ChatPage() {
           <div className="flex-1 overflow-y-auto p-6">
             <Chat chatHistory={chatHistory} isLoading={isPending} />
           </div>
-          
+
           {/* Chat input at bottom */}
           <div className="p-6 border-t border-zinc-800">
             <form onSubmit={handleSideChatMessage} className="relative">
@@ -215,4 +314,3 @@ export default function ChatPage() {
     </div>
   );
 }
-
