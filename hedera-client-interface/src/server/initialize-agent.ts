@@ -300,7 +300,29 @@ Response: "🔍 Based on my analysis: [detailed reasoning]
         resp.push(...result.parts.map((p: any) => p.text || p));
       }
 
-      return resp.length > 0 ? resp.join('\n') : 'No response content available.';
+      const responseText = resp.length > 0 ? resp.join('\n') : 'No response content available.';
+
+      // Try to parse and extract structured response for Research Agent
+      // Research Agent returns JSON with { summary, what_to_bet }
+      try {
+        // Check if the response contains a JSON with summary and what_to_bet
+        const jsonMatch = responseText.match(/\{[\s\S]*"summary"[\s\S]*"what_to_bet"[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          if (parsed.summary && parsed.what_to_bet) {
+            // Return only the structured research response
+            return JSON.stringify({
+              summary: parsed.summary,
+              what_to_bet: parsed.what_to_bet,
+            });
+          }
+        }
+      } catch {
+        // If parsing fails, return original response
+        console.log('Could not parse structured response, returning raw response');
+      }
+
+      return responseText;
     },
     {
       name: 'send_message',
