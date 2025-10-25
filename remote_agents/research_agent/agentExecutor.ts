@@ -82,36 +82,43 @@ class ResearchAgentExecutor implements AgentExecutor {
     eventBus.publish(workingUpdate);
 
     try {
-      // 3. Invoke the research agent and await the complete result
+      // 3. Invoke the research agent and await the structured result
       logging.info(`Starting research for query: "${query}"`);
       const result = await this.agent.invoke({
         messages: [{ role: "user", content: query }],
       });
 
-      // 4. Extract the final report from the result
-      // Based on your output, the final report is in result.files['final_report.md']
-      const finalReport = result.files?.["final_report.md"] || "";
-      const lastMessage = result.messages?.[result.messages.length - 1];
-      const reportContent =
-        lastMessage?.content || finalReport || "No report generated";
-
-      // 5. Publish the research result as an artifact
-      const artifactUpdate: TaskArtifactUpdateEvent = {
-        kind: "artifact-update",
-        taskId: context.taskId,
-        contextId: context.contextId,
-        artifact: {
-          artifactId: "research_report",
-          name: "research_report.md",
-          parts: [
-            {
-              kind: "text" as const,
-              text: reportContent,
-            },
-          ],
-        },
+      // 4. Format the response - agent already returns structured format
+      let jsonResponse: { summary: string; what_to_bet: string } = {
+        summary: "Unable to generate summary",
+        what_to_bet: "insufficient_data",
       };
-      eventBus.publish(artifactUpdate);
+
+      // Handle structured response from agent
+      if (result && typeof result === "object") {
+        if ("summary" in result && "what_to_bet" in result) {
+          jsonResponse = {
+            summary: String(result.summary),
+            what_to_bet: String(result.what_to_bet),
+          };
+        }
+      }
+
+      // 5. Publish the result as a message with JSON content
+      const resultMessage: Message = {
+        kind: "message",
+        messageId: uuidv4(),
+        role: "agent",
+        parts: [
+          {
+            kind: "text" as const,
+            text: JSON.stringify(jsonResponse),
+          },
+        ],
+      };
+      resultMessage.contextId = context.contextId;
+      (resultMessage as any).taskId = context.taskId;
+      eventBus.publish(resultMessage);
 
       // 6. Publish 'completed' status and finish
       const completeUpdate: TaskStatusUpdateEvent = {
