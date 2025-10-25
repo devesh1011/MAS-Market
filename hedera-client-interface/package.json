@@ -17,6 +17,7 @@
     "@walletconnect/modal": "^2.7.0",
     "@walletconnect/universal-provider": "^2.21.5",
     "fetch-retry": "^6.0.0",
+    "framer-motion": "^12.23.24",
     "hedera-agent-kit": "^3.0.4",
     "langchain": "^0.3.30",
     "lucide-react": "^0.525.0",

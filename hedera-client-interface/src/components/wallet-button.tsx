@@ -21,22 +21,22 @@ export function WalletButton() {
   if (!userAccountId) {
     return (
       <button
-        className="truncate bg-zinc-600 py-1 px-4 rounded-md cursor-pointer"
+        className="truncate bg-zinc-900 border border-zinc-800 text-white py-2 px-4 rounded-lg cursor-pointer hover:bg-zinc-800 transition-colors"
         onClick={handleLogin}
         disabled={!dAppConnector}
       >
-        Log in
+        Connect Wallet
       </button>
     );
   }
 
   return (
     <button
-      className="truncate bg-zinc-600 py-1 px-4 rounded-md cursor-pointer"
+      className="truncate bg-zinc-900 border border-zinc-800 text-white py-2 px-4 rounded-lg cursor-pointer hover:bg-zinc-800 transition-colors"
       onClick={handleDisconnect}
       disabled={!dAppConnector}
     >
-      {`Disconnect (${userAccountId})`}
+      {userAccountId}
     </button>
   );
 }
