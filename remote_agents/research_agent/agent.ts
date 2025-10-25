@@ -1,4 +1,4 @@
-import { createAgent } from "langchain";
+import { createAgent, toolStrategy } from "langchain";
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
 import { z } from "zod";
 import "dotenv/config";
@@ -44,7 +44,7 @@ When given a market event, you must:
 
 ## Important Guidelines
 - Be concise and direct in your analysis
-- Only use SUFFICIENT_DATA if you have found relevant, recent information
+- Only use INSUFFICIENT_DATA if you truly cannot find enough relevant information
 - Consider both supporting and opposing evidence
 - Use the internet_search tool to find current information
 - Focus on objective facts, not speculation
@@ -59,11 +59,14 @@ You MUST respond with a JSON object containing:
 
 The summary should be clear, concise, and include the most important reasoning. The user will only see this JSON response.`;
 
+    // Use toolStrategy for structured output with error handling
     this.agent = createAgent({
       model,
       tools: [internetSearch],
       systemPrompt,
-      responseFormat: ResearchResponseSchema,
+      responseFormat: toolStrategy(ResearchResponseSchema, {
+        handleError: true, // Automatically retry on validation errors
+      }),
     });
   }
 
@@ -75,26 +78,31 @@ The summary should be clear, concise, and include the most important reasoning. 
         messages: params.messages,
       });
 
-      // Extract structured response
+      // Extract structured response from agent result
+      // When using responseFormat with toolStrategy, the structured output is in result.structuredResponse
       if (result.structuredResponse) {
         return result.structuredResponse as ResearchResponse;
       }
 
-      // Fallback: try to parse from content
-      if (result.content) {
-        try {
-          const parsed = JSON.parse(
-            typeof result.content === "string"
-              ? result.content
-              : JSON.stringify(result.content)
-          );
-          return {
-            summary: parsed.summary || "Unable to generate summary",
-            what_to_bet: parsed.what_to_bet || "insufficient_data",
-          };
-        } catch (e) {
-          // If JSON parsing fails, extract from message
-          console.error("Failed to parse structured response:", e);
+      // Fallback: if somehow structuredResponse is not available, try to extract from messages
+      if (result.messages && Array.isArray(result.messages)) {
+        const lastMessage = result.messages[result.messages.length - 1];
+
+        if (lastMessage && typeof lastMessage === "object") {
+          // Check if it has content with structured data
+          if (
+            "content" in lastMessage &&
+            typeof lastMessage.content === "string"
+          ) {
+            try {
+              const parsed = JSON.parse(lastMessage.content);
+              if (parsed.summary && parsed.what_to_bet) {
+                return parsed as ResearchResponse;
+              }
+            } catch (e) {
+              // Continue to fallback
+            }
+          }
         }
       }
 

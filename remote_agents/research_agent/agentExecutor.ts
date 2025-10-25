@@ -88,23 +88,27 @@ class ResearchAgentExecutor implements AgentExecutor {
         messages: [{ role: "user", content: query }],
       });
 
-      // 4. Format the response - agent already returns structured format
+      // 4. The agent returns clean structured data with summary and what_to_bet
       let jsonResponse: { summary: string; what_to_bet: string } = {
         summary: "Unable to generate summary",
         what_to_bet: "insufficient_data",
       };
 
-      // Handle structured response from agent
-      if (result && typeof result === "object") {
-        if ("summary" in result && "what_to_bet" in result) {
-          jsonResponse = {
-            summary: String(result.summary),
-            what_to_bet: String(result.what_to_bet),
-          };
-        }
+      // Extract structured response - toolStrategy ensures structuredResponse is always populated
+      if (
+        result &&
+        typeof result === "object" &&
+        "summary" in result &&
+        "what_to_bet" in result
+      ) {
+        jsonResponse = {
+          summary: String(result.summary).trim(),
+          what_to_bet: String(result.what_to_bet).trim(),
+        };
+        logging.info(`Research result: ${jsonResponse.what_to_bet}`);
       }
 
-      // 5. Publish the result as a message with JSON content
+      // 5. Publish the clean JSON response
       const resultMessage: Message = {
         kind: "message",
         messageId: uuidv4(),
@@ -120,7 +124,7 @@ class ResearchAgentExecutor implements AgentExecutor {
       (resultMessage as any).taskId = context.taskId;
       eventBus.publish(resultMessage);
 
-      // 6. Publish 'completed' status and finish
+      // 6. Publish 'completed' status
       const completeUpdate: TaskStatusUpdateEvent = {
         kind: "status-update",
         taskId: context.taskId,
