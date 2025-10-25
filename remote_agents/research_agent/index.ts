@@ -60,9 +60,6 @@ const app = appBuilder.setupRoutes(express());
 app.listen(PORT, () => {
   console.log(`🚀 Research Agent Server started on ${BASE_URL}`);
   console.log(`📋 Agent Card: ${BASE_URL}/.well-known/agent-card.json`);
-  console.log(
-    `🔍 Skills: ${researchAgentCard.skills.map((s) => s.name).join(", ")}`
-  );
 });
 
 export { researchAgentCard, agentExecutor };
