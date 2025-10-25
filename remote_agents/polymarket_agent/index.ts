@@ -19,7 +19,8 @@ async function main() {
     const agentskill: AgentSkill = {
       id: "polymarket_data_fetch",
       name: "Polymarket Data fetching Tool",
-      description: "Helps with fetching Polymarket data",
+      description:
+        "Simple API router that fetches active market events from Polymarket. Returns raw JSON data listing all available markets. Use for discovering what markets exist. Does NOT provide analysis or recommendations.",
       tags: ["polymarket", "data"],
       examples: ["Fetch latest Polymarket data"],
     };
@@ -31,7 +32,8 @@ async function main() {
 
     const polymarketAgentCard: AgentCard = {
       name: "Polymarket Agent",
-      description: "Helps with fetching Polymarket data",
+      description:
+        "Simple API router that fetches active market events from Polymarket. Returns raw JSON data listing all available markets. Use for discovering what markets exist. Does NOT provide analysis or recommendations.",
       url: `http://${HOST}:${PORT}/`,
       version: "1.0.0",
       capabilities: capabilities,
