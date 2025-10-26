@@ -1,11 +1,10 @@
 import { ChatGoogleGenerativeAI } from "@langchain/google-genai";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import { createAgent } from "langchain";
 import { BETTOR_AGENT_INSTRUCTIONS } from "./instructions.js";
 import { bettorTools } from "./tools.js";
 
 export class BettorAgent {
-  private agent: ReturnType<typeof createReactAgent>;
-
+  private agent: any;
   constructor() {
     if (!process.env.GOOGLE_API_KEY) {
       throw new Error("GOOGLE_API_KEY environment variable is required");
@@ -14,18 +13,15 @@ export class BettorAgent {
     // Initialize Google Gemini model
     const model = new ChatGoogleGenerativeAI({
       apiKey: process.env.GOOGLE_API_KEY,
-      model: "gemini-2.0-flash-exp",
+      model: "gemini-2.0-flash",
       temperature: 0.3, // Lower temperature for more deterministic bet execution
-      maxRetries: 3,
     });
 
-    // Bind tools to the model
-    const modelWithTools = model.bindTools(bettorTools);
-
     // Create ReAct agent with tools
-    this.agent = createReactAgent({
-      llm: modelWithTools,
+    this.agent = createAgent({
+      model: model,
       tools: bettorTools,
+      systemPrompt: BETTOR_AGENT_INSTRUCTIONS,
     });
   }
 
@@ -61,4 +57,3 @@ export class BettorAgent {
     }
   }
 }
-

@@ -1,4 +1,4 @@
-import { tool } from "@langchain/core/tools";
+import { tool } from "langchain";
 import { z } from "zod";
 import {
   Client,
@@ -35,9 +35,11 @@ export const triggerX402Payment = tool(
     try {
       // In a full x402 implementation, this would create a payment request
       // For now, we'll simulate by preparing the transaction details
-      
-      const paymentRequestId = `pay_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      
+
+      const paymentRequestId = `pay_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(7)}`;
+
       // Return payment request info
       // In production, this would be an x402 payment URL that opens in wallet
       return JSON.stringify({
@@ -59,7 +61,8 @@ export const triggerX402Payment = tool(
     } catch (error) {
       return JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Payment request failed",
+        error:
+          error instanceof Error ? error.message : "Payment request failed",
       });
     }
   },
@@ -68,9 +71,13 @@ export const triggerX402Payment = tool(
     description:
       "Creates an x402 payment request for placing a bet. Returns payment details and URL for user to approve in their wallet.",
     schema: z.object({
-      userAccountId: z.string().describe("Hedera account ID of the user (e.g., 0.0.12345)"),
+      userAccountId: z
+        .string()
+        .describe("Hedera account ID of the user (e.g., 0.0.12345)"),
       amount: z.string().describe("Amount to bet in HBAR (e.g., '100')"),
-      marketId: z.string().describe("Unique identifier of the prediction market"),
+      marketId: z
+        .string()
+        .describe("Unique identifier of the prediction market"),
       direction: z.enum(["yes", "no"]).describe("Bet direction: 'yes' or 'no'"),
       metadata: z.object({}).optional().describe("Additional metadata"),
     }),
@@ -83,9 +90,11 @@ export const recordBet = tool(
     try {
       // TODO: Integrate with your custom betting backend/smart contract
       // This is a placeholder that returns success for development
-      
-      const betId = `bet_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-      
+
+      const betId = `bet_${Date.now()}_${Math.random()
+        .toString(36)
+        .substring(7)}`;
+
       console.log("[RECORD BET]", {
         betId,
         userAccountId,
@@ -140,9 +149,10 @@ export const checkMarketResolution = tool(
   async ({ marketId }) => {
     try {
       // Query Polymarket API for market status
-      const apiUrl = process.env.POLYMARKET_API_URL || "https://gamma-api.polymarket.com";
+      const apiUrl =
+        process.env.POLYMARKET_API_URL || "https://gamma-api.polymarket.com";
       const response = await fetch(`${apiUrl}/markets/${marketId}`);
-      
+
       if (!response.ok) {
         throw new Error(`API returned ${response.status}`);
       }
@@ -160,7 +170,8 @@ export const checkMarketResolution = tool(
     } catch (error) {
       return JSON.stringify({
         success: false,
-        error: error instanceof Error ? error.message : "Failed to check resolution",
+        error:
+          error instanceof Error ? error.message : "Failed to check resolution",
         marketId,
       });
     }
@@ -181,7 +192,7 @@ export const getWinningBets = tool(
     try {
       // TODO: Integrate with your custom betting backend to fetch winners
       // Query your database or smart contract for winning bets
-      
+
       console.log("[GET WINNING BETS]", {
         marketId,
         outcome,
@@ -194,7 +205,8 @@ export const getWinningBets = tool(
         marketId,
         outcome,
         winners: [], // TODO: Return array of { userAccountId, amount, payout }
-        message: "Ready for custom implementation - query your betting backend here",
+        message:
+          "Ready for custom implementation - query your betting backend here",
         note: "Integrate with your database or smart contract to fetch actual winners",
       });
     } catch (error) {
@@ -222,10 +234,10 @@ export const triggerPayout = tool(
   async ({ userAccountId, amount, marketId, originalBet }) => {
     try {
       const client = getHederaClient();
-      
+
       // In production x402, this would create a payout request
       // For now, we'll execute a direct Hedera transfer
-      
+
       const operatorId = AccountId.fromString(process.env.HEDERA_OPERATOR_ID!);
       const recipientId = AccountId.fromString(userAccountId);
       const amountHbar = Hbar.from(parseFloat(amount), "hbar");
@@ -277,4 +289,3 @@ export const bettorTools = [
   getWinningBets,
   triggerPayout,
 ];
-
