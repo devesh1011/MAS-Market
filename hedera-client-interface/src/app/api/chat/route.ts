@@ -49,8 +49,9 @@ export async function POST(req: NextRequest) {
 
     // Initialize host agent with remote agent URLs
     const remoteAgentAddresses = [
-      process.env.RESEARCH_AGENT_URL || 'http://localhost:8001',
-      process.env.POLYMARKET_AGENT_URL || 'http://localhost:8002',
+      process.env.POLYMARKET_AGENT_URL || 'http://localhost:8001',
+      process.env.RESEARCH_AGENT_URL || 'http://localhost:8002',
+      process.env.BETTOR_AGENT_URL || 'http://localhost:8003',
     ];
 
     console.log('[CHAT API] Initializing agent with remotes:', remoteAgentAddresses);
@@ -107,7 +108,8 @@ export async function GET() {
     capabilities: [
       'Market data discovery via Polymarket Agent',
       'Event analysis via Research Agent',
-      'Bet execution with Hedera settlement',
+      'Bet execution via Bettor Agent with x402 payments',
+      'Automated payout distribution',
       'Multi-turn conversation context',
     ],
     endpoints: {

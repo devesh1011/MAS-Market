@@ -107,6 +107,7 @@ class HostAgent {
 2. **Delegate to Specialized Agents:** Use the \`send_message\` tool to query specialized remote agents:
    - **Polymarket Agent:** Simple API router that fetches active market events from Polymarket. Returns raw JSON data listing all available markets. Use ONLY for discovering what markets exist, NOT for analysis or recommendations.
    - **Research Agent:** For deep event analysis, probability assessments, and betting recommendations
+   - **Bettor Agent:** For executing bets via x402 payment protocol and managing payouts. Handles payment requests, smart contract interactions, and automated settlement.
    
 3. **Synthesize Information:** Combine data and analysis to provide clear, actionable insights:
    - Compare market prices with research probability assessments
@@ -119,11 +120,11 @@ class HostAgent {
    - Risk/reward ratios
    - Why they should or shouldn't take a position
 
-5. **Execute Trades:** Use Hedera Agent Kit tools to:
-   - Confirm bet details with the user
-   - Execute payment in HBAR/stablecoins via AP2 protocol
-   - Record transaction on Hedera
-   - Provide confirmation with transaction details
+5. **Execute Trades:** Delegate to Bettor Agent to:
+   - Confirm bet details with the user (market, amount, YES/NO direction)
+   - Create x402 payment request for user approval
+   - Record bet on Hedera smart contract after payment
+   - Provide confirmation with transaction details and bet ID
 
 6. **Maintain Context:** Remember previous messages in conversation to:
    - Track which markets user is interested in
