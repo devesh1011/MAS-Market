@@ -1,0 +1,33 @@
+{
+  "name": "bettor_agent",
+  "version": "1.0.0",
+  "description": "Bettor Agent - Executes bets and manages payouts via x402 protocol on Hedera",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "tsx agent.ts",
+    "start": "tsx index.ts"
+  },
+  "keywords": ["betting", "x402", "hedera", "payments"],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@a2a-js/sdk": "^0.3.4",
+    "@hashgraph/sdk": "^2.75.0",
+    "@langchain/core": "^1.0.1",
+    "@langchain/google-genai": "^1.0.0",
+    "@langchain/langgraph": "^1.0.0",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "langchain": "^1.0.1",
+    "uuid": "^13.0.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.9.1",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}
+
