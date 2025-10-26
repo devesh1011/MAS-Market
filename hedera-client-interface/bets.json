@@ -1,0 +1,28 @@
+[
+  {
+    "id": "bet_1761478773175_ldifza",
+    "userId": "0.0.7126197",
+    "amount": 2,
+    "marketId": "Fed decision in October?",
+    "marketTitle": "Fed decision in October?",
+    "direction": "yes",
+    "transactionId": "0.0.7126197@1761478748.760166448",
+    "status": "paid",
+    "createdAt": 1761478773175,
+    "paidAt": 1761479691137,
+    "payoutTxId": "0.0.7135727@1761479682.143633829"
+  },
+  {
+    "id": "bet_1761479044513_aj0rxy",
+    "userId": "0.0.7126197",
+    "amount": 4,
+    "marketId": "Israel strikes Iran by October 31?",
+    "marketTitle": "Israel strikes Iran by October 31?",
+    "direction": "yes",
+    "transactionId": "0.0.7126197@1761479035.743582393",
+    "status": "paid",
+    "createdAt": 1761479044513,
+    "paidAt": 1761479702606,
+    "payoutTxId": "0.0.7135727@1761479693.336543861"
+  }
+]

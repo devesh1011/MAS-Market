@@ -15,7 +15,22 @@ export async function handleChatRequest(body: ChatRequest) {
     },
     body: JSON.stringify(body),
   });
-  const rawData = await response.json();
+  
+  // Check if response is OK
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`API Error (${response.status}): ${errorText}`);
+  }
+  
+  // Try to parse JSON
+  let rawData;
+  try {
+    rawData = await response.json();
+  } catch (error) {
+    const textContent = await response.text();
+    throw new Error(`Invalid JSON response from API: ${textContent.substring(0, 200)}`);
+  }
+  
   return chatResponseSchema.parse(rawData);
 }
 

@@ -160,30 +160,133 @@ export default function ChatPage() {
     console.log('Modal should now be open');
   }
 
-  // Handle placing bet
+  // Handle placing bet - Simple direct Hedera transaction
   async function handlePlaceBet(amount: string) {
-    if (!selectedBet) return;
+    if (!selectedBet || !dAppContext?.dAppConnector) return;
     
-    console.log('Placing bet:', { 
-      direction: selectedBet.direction, 
-      market: selectedBet.marketTitle, 
-      amount 
-    });
-    
-    // Add to chat that bet was placed
-    setChatHistory((v) => [
-      ...v,
-      {
-        type: 'ai',
-        content: `Bet placed: ${amount} HBAR on ${selectedBet.direction.toUpperCase()} for "${selectedBet.marketTitle}"`,
-      },
-    ]);
-    
-    // Close modal
-    setBetModalOpen(false);
-    setSelectedBet(null);
-    
-    // TODO: Integrate with actual betting logic/smart contract
+    const betAmount = parseFloat(amount);
+    if (isNaN(betAmount) || betAmount <= 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+
+    try {
+      const userAccountId = dAppContext.dAppConnector.signers[0].getAccountId().toString();
+      
+      // Hardcoded bettor agent account (replace with your actual account)
+      const BETTOR_AGENT_ACCOUNT = process.env.NEXT_PUBLIC_BETTOR_AGENT_ID || '0.0.5207193';
+      
+      console.log('Placing bet via direct Hedera transaction:', { 
+        direction: selectedBet.direction, 
+        market: selectedBet.marketTitle, 
+        amount: betAmount,
+        from: userAccountId,
+        to: BETTOR_AGENT_ACCOUNT,
+      });
+
+      // Create transaction memo with bet details (MUST be under 100 bytes for Hedera)
+      // Format: "YES 5 HBAR - Market Title (truncated if needed)"
+      const directionText = selectedBet.direction.toUpperCase();
+      const amountText = `${betAmount} HBAR`;
+      
+      // Truncate market title to fit in 100 bytes
+      const prefix = `${directionText} ${amountText} - `;
+      const maxMarketLength = 95 - prefix.length; // Leave some buffer
+      let marketTitle = selectedBet.marketTitle;
+      if (marketTitle.length > maxMarketLength) {
+        marketTitle = marketTitle.substring(0, maxMarketLength - 3) + '...';
+      }
+      
+      const betMemo = `${prefix}${marketTitle}`;
+      
+      // Ensure it's under 100 bytes (UTF-8 encoded)
+      const finalMemo = betMemo.length > 100 ? betMemo.substring(0, 97) + '...' : betMemo;
+
+      console.log('Transaction details:', {
+        from: userAccountId,
+        to: BETTOR_AGENT_ACCOUNT,
+        amount: `${betAmount} HBAR`,
+        memo: finalMemo,
+        memoLength: finalMemo.length,
+      });
+
+      console.log('Creating bet transfer transaction...');
+
+      // Call API to create transaction bytes (without any signature)
+      const createTxResponse = await fetch('/api/create-bet-transfer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: userAccountId,
+          to: BETTOR_AGENT_ACCOUNT,
+          amount: betAmount.toString(),
+          memo: finalMemo,
+        }),
+      });
+
+      if (!createTxResponse.ok) {
+        const error = await createTxResponse.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(error.error || 'Failed to create transaction');
+      }
+
+      const { transactionBytes } = await createTxResponse.json();
+      console.log('Transaction bytes created, sending to wallet for signing...');
+
+      // Send to wallet for user to sign and execute
+      const result = await dAppContext.dAppConnector.signAndExecuteTransaction({
+        signerAccountId: userAccountId,
+        transactionList: transactionBytes,
+      });
+
+      if (result && 'transactionId' in result) {
+        const transactionId = result.transactionId;
+        console.log('✅ Transaction successful:', transactionId);
+
+        // Track the bet in the system
+        try {
+          const trackResponse = await fetch('/api/track-bet', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: userAccountId,
+              amount: betAmount.toString(),
+              marketId: selectedBet.marketTitle,
+              marketTitle: selectedBet.marketTitle,
+              direction: selectedBet.direction,
+              transactionId: transactionId,
+            }),
+          });
+
+          if (trackResponse.ok) {
+            const trackData = await trackResponse.json();
+            console.log('✅ Bet tracked:', trackData.betId);
+          } else {
+            console.error('Failed to track bet');
+          }
+        } catch (error) {
+          console.error('Error tracking bet:', error);
+        }
+
+        setChatHistory((v) => [
+          ...v,
+          {
+            type: 'ai',
+            content: `✅ Bet placed successfully!\n\n**Transaction ID:** ${transactionId}\n**Amount:** ${betAmount} HBAR\n**Direction:** ${selectedBet.direction.toUpperCase()}\n**Market:** ${selectedBet.marketTitle}\n\n[View on HashScan](https://hashscan.io/testnet/transaction/${transactionId})\n\n_Your bet is being held in escrow. You'll receive a payout if you win!_`,
+          },
+        ]);
+      }
+
+      // Close modal
+      setBetModalOpen(false);
+      setSelectedBet(null);
+      
+    } catch (error) {
+      console.error('❌ Error placing bet:', error);
+      alert(`❌ Error placing bet:\n\n${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease try again.`);
+      
+      setBetModalOpen(false);
+      setSelectedBet(null);
+    }
   }
 
   // Handle side chat messages
